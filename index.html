@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>دفترچه تلفن داخلی | شرکت زامیاد</title>
+<link rel="stylesheet" href="css/phonebook.css">
+</head>
+<body>
+<header class="topbar">
+  <div>
+    <div class="brand">شرکت زامیاد</div>
+    <div class="subtitle">دفترچه تلفن داخلی</div>
+  </div>
+  <button id="adminBtn" class="btn btn-light">مدیریت</button>
+</header>
+
+<main class="container">
+  <section class="hero">
+    <h1>دفترچه تلفن داخلی شرکت زامیاد</h1>
+    <p>جستجوی سریع اطلاعات تماس و شماره‌های داخلی</p>
+  </section>
+
+  <section class="toolbar">
+    <input id="searchInput" type="search" placeholder="جستجو نام، نام خانوادگی، پرسنلی، واحد یا داخلی..." autocomplete="off">
+    <select id="departmentFilter"><option value="">همه واحدها</option></select>
+    <button id="clearBtn" class="btn">پاک کردن</button>
+  </section>
+
+  <section class="summary">
+    <span id="resultCount">0 رکورد</span>
+    <span>•</span>
+    <span id="updateDate">آخرین بروزرسانی: —</span>
+  </section>
+
+  <section class="card">
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>ردیف</th><th>نام و نام خانوادگی</th><th>شماره پرسنلی</th>
+          <th>واحد</th><th>سمت</th><th>داخلی</th><th>وضعیت</th>
+        </tr></thead>
+        <tbody id="phonebookBody"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<div id="personModal" class="modal hidden">
+  <div class="modal-box">
+    <button class="modal-close" data-close="personModal">×</button>
+    <h2 id="personTitle">اطلاعات تماس</h2>
+    <div id="personDetails" class="details"></div>
+  </div>
+</div>
+
+<div id="adminModal" class="modal hidden">
+  <div class="modal-box admin-box">
+    <button class="modal-close" data-close="adminModal">×</button>
+    <h2>مدیریت دفترچه تلفن</h2>
+    <div class="admin-actions">
+      <button id="addBtn" class="btn btn-primary">افزودن شخص</button>
+      <button id="exportBtn" class="btn">خروجی CSV</button>
+      <button id="resetBtn" class="btn btn-danger">بازنشانی دمو</button>
+    </div>
+    <div id="adminList"></div>
+  </div>
+</div>
+
+<div id="editModal" class="modal hidden">
+  <div class="modal-box">
+    <button class="modal-close" data-close="editModal">×</button>
+    <h2 id="editTitle">افزودن رکورد</h2>
+    <form id="editForm">
+      <input type="hidden" id="editId">
+      <label>نام و نام خانوادگی<input id="name" required></label>
+      <label>شماره پرسنلی<input id="personnel" required></label>
+      <label>واحد<input id="department" required></label>
+      <label>سمت<input id="position"></label>
+      <label>شماره داخلی<input id="extension" required></label>
+      <label class="check"><input id="active" type="checkbox" checked> فعال</label>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">ذخیره</button>
+        <button type="button" class="btn" data-close="editModal">انصراف</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="data/phonebook-data.js"></script>
+<script src="js/phonebook.js"></script>
+</body>
+</html>
