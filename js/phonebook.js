@@ -18,5 +18,44 @@ document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>$(b.dataset.c
 $("editForm").onsubmit=e=>{e.preventDefault();const id=+$("editId").value,x={id:id||Date.now(),name:$("name").value.trim(),personnel:$("personnel").value.trim(),department:$("department").value.trim(),position:$("position").value.trim(),extension:$("extension").value.trim(),active:$("active").checked};if(id)data=data.map(a=>a.id===id?x:a);else data.push(x);save();departments();render();admin();$("editModal").classList.add("hidden")};
 $("resetBtn").onclick=()=>{if(confirm("داده‌های دمو بازنشانی شود؟")){data=structuredClone(window.ZAMYAD_PHONEBOOK_DATA);save();departments();render();admin()}};
 $("exportBtn").onclick=()=>{const head=["نام","پرسنلی","واحد","سمت","داخلی","وضعیت"],body=data.map(x=>[x.name,x.personnel,x.department,x.position,x.extension,x.active?"فعال":"غیرفعال"]);const csv="\uFEFF"+[head,...body].map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(",")).join("\n");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));a.download="zamyad-phonebook.csv";a.click()};
+$("importExcelBtn").onclick=()=>$("excelFile").click();
+$("excelFile").onchange=async e=>{
+ const f=e.target.files[0]; if(!f)return;
+ if(typeof XLSX==="undefined"){alert("کتابخانه Excel بارگذاری نشده است.");return}
+ try{
+  const wb=XLSX.read(await f.arrayBuffer(),{type:"array"});
+  const ws=wb.Sheets[wb.SheetNames[0]];
+  const rows=XLSX.utils.sheet_to_json(ws,{defval:""});
+  if(!rows.length){alert("فایل Excel خالی است.");return}
+  const norm=v=>String(v??"").trim();
+  const pick=(r,names)=>{for(const n of names)if(r[n]!==undefined)return norm(r[n]);return ""};
+  const imported=rows.map((r,i)=>({
+   id:Date.now()+i,
+   name:pick(r,["نام","نام و نام خانوادگی","name","Name"]),
+   personnel:pick(r,["شماره پرسنلی","پرسنلی","personnel","Personnel"]),
+   department:pick(r,["واحد","دپارتمان","department","Department"]),
+   position:pick(r,["سمت","position","Position"]),
+   extension:pick(r,["شماره داخلی","داخلی","extension","Extension"]),
+   active:!["غیرفعال","inactive","0","false"].includes(pick(r,["وضعیت","active","Active"]).toLowerCase())
+  })).filter(x=>x.name||x.personnel||x.extension);
+  if(!imported.length){alert("ستون‌های قابل شناسایی در فایل پیدا نشد.");return}
+  const mode=confirm("برای جایگزینی کامل اطلاعات «تأیید» را بزنید. برای افزودن به اطلاعات موجود «لغو» را بزنید.");
+  if(mode){data=imported}else{
+   const key=x=>x.personnel||x.extension||x.name;
+   const map=new Map(data.map(x=>[key(x),x]));
+   imported.forEach(x=>map.set(key(x),x)); data=[...map.values()];
+  }
+  save();departments();render();admin();
+  alert(imported.length+" رکورد از Excel وارد شد.");
+ }catch(err){console.error(err);alert("خطا در خواندن فایل Excel.");}
+ e.target.value="";
+};
+$("exportExcelBtn").onclick=()=>{
+ if(typeof XLSX==="undefined"){alert("کتابخانه Excel بارگذاری نشده است.");return}
+ const rows=data.map((x,i)=>({"ردیف":i+1,"نام و نام خانوادگی":x.name,"شماره پرسنلی":x.personnel,"واحد":x.department,"سمت":x.position,"شماره داخلی":x.extension,"وضعیت":x.active?"فعال":"غیرفعال"}));
+ const ws=XLSX.utils.json_to_sheet(rows); ws["!cols"]=[{wch:8},{wch:24},{wch:16},{wch:22},{wch:26},{wch:14},{wch:12}];
+ const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"دفترچه تلفن");
+ XLSX.writeFile(wb,"zamyad-phonebook.xlsx");
+};
 departments();render();$("updateDate").textContent="آخرین بروزرسانی: "+new Date().toLocaleDateString("fa-IR");
 })();
