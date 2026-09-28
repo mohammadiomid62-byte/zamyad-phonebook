@@ -27,7 +27,7 @@ document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>$(b.dataset.c
 $("editForm").onsubmit=e=>{e.preventDefault();const id=+$("editId").value,x={id:id||Date.now(),name:$("name").value.trim(),personnel:$("personnel").value.trim(),department:$("department").value.trim(),position:$("position").value.trim(),extension:$("extension").value.trim(),active:$("active").checked};if(id)data=data.map(a=>a.id===id?x:a);else data.push(x);save();log(id?"ویرایش رکورد":"افزودن رکورد",1,x.name);departments();render();admin();$("editModal").classList.add("hidden")};
 $("resetBtn").onclick=()=>{if(confirm("داده‌های دمو بازنشانی شود؟")){data=structuredClone(window.ZAMYAD_PHONEBOOK_DATA);save();departments();render();admin()}};
 $("exportBtn").onclick=()=>{const head=["نام","پرسنلی","واحد","سمت","داخلی","وضعیت"],body=data.map(x=>[x.name,x.personnel,x.department,x.position,x.extension,x.active?"فعال":"غیرفعال"]);const csv="\uFEFF"+[head,...body].map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(",")).join("\n");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));a.download="zamyad-phonebook.csv";a.click()};
-let pendingExcel=[];
+let pendingExcel=[], pendingMissing=[];
 function openExcelPreview(rows){
  const norm=v=>String(v??"").trim();
  const pick=(r,names)=>{for(const n of names)if(r[n]!==undefined)return norm(r[n]);return ""};
@@ -43,8 +43,10 @@ function openExcelPreview(rows){
   x.errors=errors; parsed.push(x);
  });
  pendingExcel=parsed;
+ const importedPersonnel=new Set(parsed.map(x=>norm(x.personnel)).filter(Boolean));
+ pendingMissing=data.filter(x=>x.active&&x.personnel&&!importedPersonnel.has(norm(x.personnel)));
  const valid=parsed.filter(x=>!x.errors.length).length, invalid=parsed.length-valid, duplicate=parsed.filter(x=>x.errors.some(e=>e.includes("تکراری"))).length, updated=parsed.filter(x=>!x.errors.length&&x.change==="قابل به‌روزرسانی").length, added=parsed.filter(x=>!x.errors.length&&x.change==="جدید").length;
- $("excelSummary").innerHTML=`<span>کل: <b>${parsed.length}</b></span><span class="ok">معتبر: <b>${valid}</b></span><span class="bad">دارای خطا: <b>${invalid}</b></span><span>جدید: <b>${added}</b></span><span>قابل به‌روزرسانی: <b>${updated}</b></span><span>تکراری: <b>${duplicate}</b></span>`;
+ $("excelSummary").innerHTML=`<span>کل: <b>${parsed.length}</b></span><span class="ok">معتبر: <b>${valid}</b></span><span class="bad">دارای خطا: <b>${invalid}</b></span><span>جدید: <b>${added}</b></span><span>قابل به‌روزرسانی: <b>${updated}</b></span><span>تکراری: <b>${duplicate}</b></span><span class="bad">غایب از Excel: <b>${pendingMissing.length}</b></span>`;
  $("excelPreviewBody").innerHTML=parsed.map(x=>`<tr class="${x.errors.length?"excel-error":""}"><td>${x.row}</td><td>${esc(x.name)}</td><td>${esc(x.personnel)}</td><td>${esc(x.department)}</td><td>${esc(x.position)}</td><td>${esc(x.extension)}</td><td>${x.active?"فعال":"غیرفعال"}</td><td>${x.errors.length?'<span class="status off">'+esc(x.errors.join("، "))+'</span>':'<span class="status">معتبر</span>'}</td></tr>`).join("");
  $("excelConfirmBtn").disabled=valid===0;
  $("excelPreviewModal").classList.remove("hidden");
@@ -69,7 +71,7 @@ $("excelConfirmBtn").onclick=()=>{
   const map=new Map(data.map(x=>[x.personnel||x.extension||x.name,x]));
   valid.forEach(x=>map.set(x.personnel||x.extension||x.name,x)); data=[...map.values()];
  }
- save();log("ورود Excel",valid.length,"جدید: "+valid.filter(x=>x.change==="جدید").length+"، به‌روزرسانی: "+valid.filter(x=>x.change==="قابل به‌روزرسانی").length);departments();render();admin();$("excelPreviewModal").classList.add("hidden");
+ if($("suggestDeactivate").checked&&pendingMissing.length){data=data.map(x=>pendingMissing.some(m=>m.id===x.id)?{...x,active:false}:x);log("پیشنهاد غیرفعال‌سازی غایبان Excel",pendingMissing.length);} save();log("ورود Excel",valid.length,"جدید: "+valid.filter(x=>x.change==="جدید").length+"، به‌روزرسانی: "+valid.filter(x=>x.change==="قابل به‌روزرسانی").length);departments();render();admin();$("excelPreviewModal").classList.add("hidden");
  alert(valid.length+" رکورد معتبر ثبت شد. رکوردهای دارای خطا ثبت نشدند.");
 };
 $("exportExcelBtn").onclick=()=>{
