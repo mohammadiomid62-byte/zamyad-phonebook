@@ -18,37 +18,50 @@ document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>$(b.dataset.c
 $("editForm").onsubmit=e=>{e.preventDefault();const id=+$("editId").value,x={id:id||Date.now(),name:$("name").value.trim(),personnel:$("personnel").value.trim(),department:$("department").value.trim(),position:$("position").value.trim(),extension:$("extension").value.trim(),active:$("active").checked};if(id)data=data.map(a=>a.id===id?x:a);else data.push(x);save();departments();render();admin();$("editModal").classList.add("hidden")};
 $("resetBtn").onclick=()=>{if(confirm("داده‌های دمو بازنشانی شود؟")){data=structuredClone(window.ZAMYAD_PHONEBOOK_DATA);save();departments();render();admin()}};
 $("exportBtn").onclick=()=>{const head=["نام","پرسنلی","واحد","سمت","داخلی","وضعیت"],body=data.map(x=>[x.name,x.personnel,x.department,x.position,x.extension,x.active?"فعال":"غیرفعال"]);const csv="\uFEFF"+[head,...body].map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(",")).join("\n");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));a.download="zamyad-phonebook.csv";a.click()};
+let pendingExcel=[];
+function openExcelPreview(rows){
+ const norm=v=>String(v??"").trim();
+ const pick=(r,names)=>{for(const n of names)if(r[n]!==undefined)return norm(r[n]);return ""};
+ const existingByPersonnel=new Set(data.map(x=>norm(x.personnel)).filter(Boolean));
+ const seen=new Set(), parsed=[];
+ rows.forEach((r,i)=>{
+  const x={row:i+2,id:Date.now()+i,name:pick(r,["نام","نام و نام خانوادگی","name","Name"]),personnel:pick(r,["شماره پرسنلی","پرسنلی","personnel","Personnel"]),department:pick(r,["واحد","دپارتمان","department","Department"]),position:pick(r,["سمت","position","Position"]),extension:pick(r,["شماره داخلی","داخلی","extension","Extension"]),active:!["غیرفعال","inactive","0","false"].includes(pick(r,["وضعیت","active","Active"]).toLowerCase())};
+  const errors=[]; if(!x.name)errors.push("نام خالی"); if(!x.personnel)errors.push("پرسنلی خالی"); if(!x.extension)errors.push("داخلی خالی");
+  const key=x.personnel||x.extension||x.name;
+  if(seen.has(key))errors.push("تکراری در فایل"); else seen.add(key);
+  if(x.personnel&&existingByPersonnel.has(x.personnel))errors.push("پرسنلی موجود است");
+  if(x.extension&&!/^[-+()0-9\s]{2,15}$/.test(x.extension))errors.push("شماره داخلی نامعتبر");
+  x.errors=errors; parsed.push(x);
+ });
+ pendingExcel=parsed;
+ const valid=parsed.filter(x=>!x.errors.length).length, invalid=parsed.length-valid, duplicate=parsed.filter(x=>x.errors.some(e=>e.includes("تکراری")||e.includes("موجود"))).length;
+ $("excelSummary").innerHTML=`<span>کل: <b>${parsed.length}</b></span><span class="ok">معتبر: <b>${valid}</b></span><span class="bad">دارای خطا: <b>${invalid}</b></span><span>تکراری/موجود: <b>${duplicate}</b></span>`;
+ $("excelPreviewBody").innerHTML=parsed.map(x=>`<tr class="${x.errors.length?"excel-error":""}"><td>${x.row}</td><td>${esc(x.name)}</td><td>${esc(x.personnel)}</td><td>${esc(x.department)}</td><td>${esc(x.position)}</td><td>${esc(x.extension)}</td><td>${x.active?"فعال":"غیرفعال"}</td><td>${x.errors.length?'<span class="status off">'+esc(x.errors.join("، "))+'</span>':'<span class="status">معتبر</span>'}</td></tr>`).join("");
+ $("excelConfirmBtn").disabled=valid===0;
+ $("excelPreviewModal").classList.remove("hidden");
+}
 $("importExcelBtn").onclick=()=>$("excelFile").click();
 $("excelFile").onchange=async e=>{
  const f=e.target.files[0]; if(!f)return;
  if(typeof XLSX==="undefined"){alert("کتابخانه Excel بارگذاری نشده است.");return}
  try{
   const wb=XLSX.read(await f.arrayBuffer(),{type:"array"});
-  const ws=wb.Sheets[wb.SheetNames[0]];
-  const rows=XLSX.utils.sheet_to_json(ws,{defval:""});
+  const ws=wb.Sheets[wb.SheetNames[0]], rows=XLSX.utils.sheet_to_json(ws,{defval:""});
   if(!rows.length){alert("فایل Excel خالی است.");return}
-  const norm=v=>String(v??"").trim();
-  const pick=(r,names)=>{for(const n of names)if(r[n]!==undefined)return norm(r[n]);return ""};
-  const imported=rows.map((r,i)=>({
-   id:Date.now()+i,
-   name:pick(r,["نام","نام و نام خانوادگی","name","Name"]),
-   personnel:pick(r,["شماره پرسنلی","پرسنلی","personnel","Personnel"]),
-   department:pick(r,["واحد","دپارتمان","department","Department"]),
-   position:pick(r,["سمت","position","Position"]),
-   extension:pick(r,["شماره داخلی","داخلی","extension","Extension"]),
-   active:!["غیرفعال","inactive","0","false"].includes(pick(r,["وضعیت","active","Active"]).toLowerCase())
-  })).filter(x=>x.name||x.personnel||x.extension);
-  if(!imported.length){alert("ستون‌های قابل شناسایی در فایل پیدا نشد.");return}
-  const mode=confirm("برای جایگزینی کامل اطلاعات «تأیید» را بزنید. برای افزودن به اطلاعات موجود «لغو» را بزنید.");
-  if(mode){data=imported}else{
-   const key=x=>x.personnel||x.extension||x.name;
-   const map=new Map(data.map(x=>[key(x),x]));
-   imported.forEach(x=>map.set(key(x),x)); data=[...map.values()];
-  }
-  save();departments();render();admin();
-  alert(imported.length+" رکورد از Excel وارد شد.");
+  openExcelPreview(rows);
  }catch(err){console.error(err);alert("خطا در خواندن فایل Excel.");}
  e.target.value="";
+};
+$("excelConfirmBtn").onclick=()=>{
+ const valid=pendingExcel.filter(x=>!x.errors.length).map(({row,errors,...x})=>x);
+ if(!valid.length)return;
+ const replace=confirm("تأیید کنید تا اطلاعات معتبر جایگزین اطلاعات فعلی شود. برای افزودن/به‌روزرسانی، «لغو» را بزنید.");
+ if(replace)data=valid; else {
+  const map=new Map(data.map(x=>[x.personnel||x.extension||x.name,x]));
+  valid.forEach(x=>map.set(x.personnel||x.extension||x.name,x)); data=[...map.values()];
+ }
+ save();departments();render();admin();$("excelPreviewModal").classList.add("hidden");
+ alert(valid.length+" رکورد معتبر ثبت شد. رکوردهای دارای خطا ثبت نشدند.");
 };
 $("exportExcelBtn").onclick=()=>{
  if(typeof XLSX==="undefined"){alert("کتابخانه Excel بارگذاری نشده است.");return}
