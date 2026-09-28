@@ -1,6 +1,8 @@
-(()=>{const KEY="zamyad-phonebook-v1";let data=load();let $=id=>document.getElementById(id);
+(()=>{const KEY="zamyad-phonebook-v1";const HISTORY="zamyad-phonebook-history-v1";let data=load();let $=id=>document.getElementById(id);
 function load(){try{const x=localStorage.getItem(KEY);return x?JSON.parse(x):structuredClone(window.ZAMYAD_PHONEBOOK_DATA)}catch{return structuredClone(window.ZAMYAD_PHONEBOOK_DATA)}}
 function save(){localStorage.setItem(KEY,JSON.stringify(data))}
+function history(){try{return JSON.parse(localStorage.getItem(HISTORY)||"[]")}catch{return []}}
+function log(action,count,detail=""){const h=history();h.unshift({time:new Date().toLocaleString("fa-IR"),action,count,detail});localStorage.setItem(HISTORY,JSON.stringify(h.slice(0,100)))}
 function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]))}
 function render(){const q=$("searchInput").value.trim().toLowerCase(),dep=$("departmentFilter").value;
  const rows=data.filter(x=>(!dep||x.department===dep)&&Object.values(x).some(v=>String(v).toLowerCase().includes(q)));
@@ -8,14 +10,21 @@ function render(){const q=$("searchInput").value.trim().toLowerCase(),dep=$("dep
  document.querySelectorAll("#phonebookBody tr").forEach(r=>r.onclick=()=>showPerson(+r.dataset.id))}
 function departments(){const ds=[...new Set(data.map(x=>x.department))].sort();$("departmentFilter").innerHTML='<option value="">همه واحدها</option>'+ds.map(d=>`<option>${esc(d)}</option>`).join("")}
 function showPerson(id){const x=data.find(a=>a.id===id);if(!x)return;$("personTitle").textContent=x.name;$("personDetails").innerHTML=[["شماره پرسنلی",x.personnel],["واحد",x.department],["سمت",x.position],["شماره داخلی",x.extension],["وضعیت",x.active?"فعال":"غیرفعال"]].map(a=>`<div class="detail"><b>${a[0]}</b>${esc(a[1])}</div>`).join("");$("personModal").classList.remove("hidden")}
-function admin(){ $("adminList").innerHTML=data.map(x=>`<div class="admin-row"><b>${esc(x.name)}</b><span>${esc(x.personnel)}</span><span>${esc(x.department)}</span><span>${esc(x.extension)}</span><div class="actions"><button class="btn edit" data-id="${x.id}">ویرایش</button><button class="btn btn-danger del" data-id="${x.id}">حذف</button></div></div>`).join("");
+function admin(){ $("adminList").innerHTML=data.map(x=>`<div class="admin-row"><input class="bulk-check" type="checkbox" value="${x.id}"><b>${esc(x.name)}</b><span>${esc(x.personnel)}</span><span>${esc(x.department)}</span><span>${esc(x.extension)}</span><div class="actions"><button class="btn edit" data-id="${x.id}">ویرایش</button><button class="btn btn-danger del" data-id="${x.id}">حذف</button></div></div>`).join("");
  document.querySelectorAll(".edit").forEach(b=>b.onclick=()=>edit(+b.dataset.id));document.querySelectorAll(".del").forEach(b=>b.onclick=()=>del(+b.dataset.id))}
 function edit(id=0){const x=data.find(a=>a.id===id)||{id:0,name:"",personnel:"",department:"",position:"",extension:"",active:true};$("editId").value=x.id;$("name").value=x.name;$("personnel").value=x.personnel;$("department").value=x.department;$("position").value=x.position;$("extension").value=x.extension;$("active").checked=x.active;$("editTitle").textContent=id?"ویرایش رکورد":"افزودن رکورد";$("editModal").classList.remove("hidden")}
-function del(id){if(confirm("این رکورد حذف شود؟")){data=data.filter(x=>x.id!==id);save();departments();render();admin()}}
+function del(id){if(confirm("این رکورد حذف شود؟")){data=data.filter(x=>x.id!==id);save();log("حذف رکورد",1,"شناسه: "+id);departments();render();admin()}}
 $("searchInput").oninput=render;$("departmentFilter").onchange=render;$("clearBtn").onclick=()=>{$("searchInput").value="";$("departmentFilter").value="";render()};
-$("adminBtn").onclick=()=>{$("adminModal").classList.remove("hidden");admin()};$("addBtn").onclick=()=>edit();
+$("adminBtn").onclick=()=>{$("adminModal").classList.remove("hidden");admin()};
+$("historyBtn").onclick=()=>{
+ const h=history();$("historyList").innerHTML=h.length?h.map(x=>`<div class="admin-row"><b>${esc(x.action)}</b><span>${esc(x.count)} رکورد</span><span>${esc(x.time)}</span><span>${esc(x.detail)}</span></div>`).join(""):"<p>تاریخچه‌ای ثبت نشده است.";
+ $("historyModal").classList.remove("hidden");
+};
+$("clearHistoryBtn").onclick=()=>{if(confirm("تاریخچه پاک شود؟")){localStorage.removeItem(HISTORY);$("historyBtn").click()}};
+$("selectAllBtn").onclick=()=>{document.querySelectorAll("#adminList .bulk-check").forEach(x=>x.checked=true)};
+$("bulkDeactivateBtn").onclick=()=>{const ids=[...document.querySelectorAll("#adminList .bulk-check:checked")].map(x=>+x.value);if(!ids.length){alert("رکوردی انتخاب نشده است.");return} data=data.map(x=>ids.includes(x.id)?{...x,active:false}:x);save();log("غیرفعال‌سازی گروهی",ids.length);departments();render();admin();};$("addBtn").onclick=()=>edit();
 document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>$(b.dataset.close).classList.add("hidden"));
-$("editForm").onsubmit=e=>{e.preventDefault();const id=+$("editId").value,x={id:id||Date.now(),name:$("name").value.trim(),personnel:$("personnel").value.trim(),department:$("department").value.trim(),position:$("position").value.trim(),extension:$("extension").value.trim(),active:$("active").checked};if(id)data=data.map(a=>a.id===id?x:a);else data.push(x);save();departments();render();admin();$("editModal").classList.add("hidden")};
+$("editForm").onsubmit=e=>{e.preventDefault();const id=+$("editId").value,x={id:id||Date.now(),name:$("name").value.trim(),personnel:$("personnel").value.trim(),department:$("department").value.trim(),position:$("position").value.trim(),extension:$("extension").value.trim(),active:$("active").checked};if(id)data=data.map(a=>a.id===id?x:a);else data.push(x);save();log(id?"ویرایش رکورد":"افزودن رکورد",1,x.name);departments();render();admin();$("editModal").classList.add("hidden")};
 $("resetBtn").onclick=()=>{if(confirm("داده‌های دمو بازنشانی شود؟")){data=structuredClone(window.ZAMYAD_PHONEBOOK_DATA);save();departments();render();admin()}};
 $("exportBtn").onclick=()=>{const head=["نام","پرسنلی","واحد","سمت","داخلی","وضعیت"],body=data.map(x=>[x.name,x.personnel,x.department,x.position,x.extension,x.active?"فعال":"غیرفعال"]);const csv="\uFEFF"+[head,...body].map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(",")).join("\n");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));a.download="zamyad-phonebook.csv";a.click()};
 let pendingExcel=[];
