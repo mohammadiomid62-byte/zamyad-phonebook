@@ -59,7 +59,7 @@
     <button class="modal-close" data-close="adminModal">×</button>
     <h2>مدیریت دفترچه تلفن</h2>
     <div class="admin-actions">
-      <button id="addBtn" class="btn btn-primary">افزودن شخص</button>
+      <button id="addBtn" class="btn btn-primary">افزودن شخص</button><button id="historyBtn" class="btn">تاریخچه تغییرات</button><button id="selectAllBtn" class="btn">انتخاب همه</button><button id="bulkDeactivateBtn" class="btn">غیرفعال‌سازی گروهی</button>
       <button id="importExcelBtn" class="btn">ورود Excel</button><button id="exportExcelBtn" class="btn">خروجی Excel</button><button id="exportBtn" class="btn">خروجی CSV</button><input id="excelFile" type="file" accept=".xlsx,.xls,.csv" hidden>
       <button id="resetBtn" class="btn btn-danger">بازنشانی دمو</button>
     </div>
@@ -79,6 +79,15 @@
       <button id="excelConfirmBtn" class="btn btn-primary">تأیید و ثبت اطلاعات</button>
       <button id="excelCancelBtn" class="btn" data-close="excelPreviewModal">انصراف</button>
     </div>
+  </div>
+</div>
+
+<div id="historyModal" class="modal hidden">
+  <div class="modal-box admin-box">
+    <button class="modal-close" data-close="historyModal">×</button>
+    <h2>تاریخچه تغییرات</h2>
+    <div id="historyList"></div>
+    <button id="clearHistoryBtn" class="btn btn-danger">پاک کردن تاریخچه</button>
   </div>
 </div>
 
