@@ -31,20 +31,20 @@ let pendingExcel=[];
 function openExcelPreview(rows){
  const norm=v=>String(v??"").trim();
  const pick=(r,names)=>{for(const n of names)if(r[n]!==undefined)return norm(r[n]);return ""};
- const existingByPersonnel=new Set(data.map(x=>norm(x.personnel)).filter(Boolean));
+ const existingByPersonnel=new Map(data.filter(x=>norm(x.personnel)).map(x=>[norm(x.personnel),x]));
  const seen=new Set(), parsed=[];
  rows.forEach((r,i)=>{
   const x={row:i+2,id:Date.now()+i,name:pick(r,["نام","نام و نام خانوادگی","name","Name"]),personnel:pick(r,["شماره پرسنلی","پرسنلی","personnel","Personnel"]),department:pick(r,["واحد","دپارتمان","department","Department"]),position:pick(r,["سمت","position","Position"]),extension:pick(r,["شماره داخلی","داخلی","extension","Extension"]),active:!["غیرفعال","inactive","0","false"].includes(pick(r,["وضعیت","active","Active"]).toLowerCase())};
   const errors=[]; if(!x.name)errors.push("نام خالی"); if(!x.personnel)errors.push("پرسنلی خالی"); if(!x.extension)errors.push("داخلی خالی");
   const key=x.personnel||x.extension||x.name;
   if(seen.has(key))errors.push("تکراری در فایل"); else seen.add(key);
-  if(x.personnel&&existingByPersonnel.has(x.personnel))errors.push("پرسنلی موجود است");
+  if(x.personnel&&existingByPersonnel.has(x.personnel)){const old=existingByPersonnel.get(x.personnel);x.change=JSON.stringify([old.name,old.department,old.position,old.extension,old.active])!==JSON.stringify([x.name,x.department,x.position,x.extension,x.active])?"قابل به‌روزرسانی":"بدون تغییر"}else{x.change="جدید"}
   if(x.extension&&!/^[-+()0-9\s]{2,15}$/.test(x.extension))errors.push("شماره داخلی نامعتبر");
   x.errors=errors; parsed.push(x);
  });
  pendingExcel=parsed;
- const valid=parsed.filter(x=>!x.errors.length).length, invalid=parsed.length-valid, duplicate=parsed.filter(x=>x.errors.some(e=>e.includes("تکراری")||e.includes("موجود"))).length;
- $("excelSummary").innerHTML=`<span>کل: <b>${parsed.length}</b></span><span class="ok">معتبر: <b>${valid}</b></span><span class="bad">دارای خطا: <b>${invalid}</b></span><span>تکراری/موجود: <b>${duplicate}</b></span>`;
+ const valid=parsed.filter(x=>!x.errors.length).length, invalid=parsed.length-valid, duplicate=parsed.filter(x=>x.errors.some(e=>e.includes("تکراری"))).length, updated=parsed.filter(x=>!x.errors.length&&x.change==="قابل به‌روزرسانی").length, added=parsed.filter(x=>!x.errors.length&&x.change==="جدید").length;
+ $("excelSummary").innerHTML=`<span>کل: <b>${parsed.length}</b></span><span class="ok">معتبر: <b>${valid}</b></span><span class="bad">دارای خطا: <b>${invalid}</b></span><span>جدید: <b>${added}</b></span><span>قابل به‌روزرسانی: <b>${updated}</b></span><span>تکراری: <b>${duplicate}</b></span>`;
  $("excelPreviewBody").innerHTML=parsed.map(x=>`<tr class="${x.errors.length?"excel-error":""}"><td>${x.row}</td><td>${esc(x.name)}</td><td>${esc(x.personnel)}</td><td>${esc(x.department)}</td><td>${esc(x.position)}</td><td>${esc(x.extension)}</td><td>${x.active?"فعال":"غیرفعال"}</td><td>${x.errors.length?'<span class="status off">'+esc(x.errors.join("، "))+'</span>':'<span class="status">معتبر</span>'}</td></tr>`).join("");
  $("excelConfirmBtn").disabled=valid===0;
  $("excelPreviewModal").classList.remove("hidden");
@@ -69,7 +69,7 @@ $("excelConfirmBtn").onclick=()=>{
   const map=new Map(data.map(x=>[x.personnel||x.extension||x.name,x]));
   valid.forEach(x=>map.set(x.personnel||x.extension||x.name,x)); data=[...map.values()];
  }
- save();departments();render();admin();$("excelPreviewModal").classList.add("hidden");
+ save();log("ورود Excel",valid.length,"جدید: "+valid.filter(x=>x.change==="جدید").length+"، به‌روزرسانی: "+valid.filter(x=>x.change==="قابل به‌روزرسانی").length);departments();render();admin();$("excelPreviewModal").classList.add("hidden");
  alert(valid.length+" رکورد معتبر ثبت شد. رکوردهای دارای خطا ثبت نشدند.");
 };
 $("exportExcelBtn").onclick=()=>{
